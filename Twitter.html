@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Rankings Chart 2017-2020</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .line {
+            fill: none;
+            stroke-width: 3;
+            transition: all 0.3s ease;
+        }
+        .line:hover {
+            stroke-width: 5;
+            opacity: 1 !important;
+        }
+        .dot {
+            fill: white;
+            stroke-width: 2;
+            r: 4;
+            transition: all 0.3s ease;
+        }
+        .dot:hover {
+            r: 6;
+        }
+        .country-label {
+            font-size: 12px;
+            font-weight: bold;
+            fill: #333;
+            alignment-baseline: middle;
+        }
+        .time-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: #666;
+            text-anchor: middle;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .legend {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chart-container">
+            <svg id="bump-chart"></svg>
+            <div class="tooltip"></div>
+        </div>
+        <div class="legend">
+            <p><strong>Note:</strong> Hover over lines to see country details. Lower rank numbers indicate higher positions.</p>
+            <p><strong>Color coding by continent:</strong> 
+               <span style="color: #2E8B57; font-weight: bold;">■ Asia</span> | 
+               <span style="color: #4169E1; font-weight: bold;">■ Europe</span> | 
+               <span style="color: #FF6347; font-weight: bold;">■ Africa</span> | 
+               <span style="color: #9932CC; font-weight: bold;">■ North America</span> | 
+               <span style="color: #20B2AA; font-weight: bold;">■ Oceania</span> | 
+               <span style="color: #FF8C00; font-weight: bold;">■ South America</span>
+            </p>
+            <p><strong>Markers:</strong> <strong>Colored squares</strong> for series ending in 2020.</p>
+        </div>
+    </div>
+
+    <script>
+        // Twitter Rankings data 2017-2020 with continent grouping
+        const data = [
+            {country: "United States of America", values: [1, 1, 1, 1], continent: "North America"},
+            {country: "Turkey", values: [2, 2, 2, 2], continent: "Europe"},
+            {country: "United Kingdom", values: [3, 3, 3, 4], continent: "Europe"},
+            {country: "Indonesia", values: [4, 7, 4, 5], continent: "Asia"},
+            {country: "France", values: [5, 4, 6, 7], continent: "Europe"},
+            {country: "Spain", values: [6, 6, 5, 6], continent: "Europe"},
+            {country: "India", values: [7, 14, 12, 3], continent: "Asia"},
+            {country: "Canada", values: [8, 5, 7, 9], continent: "North America"},
+            {country: "Brazil", values: [9, 8, 9, 8], continent: "South America"},
+            {country: "Mexico", values: [10, 9, 8, 11], continent: "North America"},
+            {country: "Australia", values: [11, 12, 10, 15], continent: "Oceania"},
+            {country: "Chile", values: [12, 10, 11, 14], continent: "South America"},
+            {country: "Germany", values: [13, 11, 14, 12], continent: "Europe"},
+            {country: "Malaysia", values: [14, 13, 13, 10], continent: "Asia"},
+            {country: "Argentina", values: [15, 17, 15, 16], continent: "South America"},
+            {country: "Italy", values: [16, 15, 18, 20], continent: "Europe"},
+            {country: "Colombia", values: [17, 19, 16, 13], continent: "South America"},
+            {country: "Saudi Arabia", values: [18, 18, 17, 17], continent: "Asia"},
+            {country: "Venezuela", values: [19, 16, 19, 19], continent: "South America"},
+            {country: "Nigeria", values: [20, 20, 20, 18], continent: "Africa"}
+        ];
+
+        const years = [2017, 2018, 2019, 2020];
+        
+        // Continent color mapping
+        const continentColors = {
+            "Asia": "#2E8B57",
+            "Europe": "#4169E1",
+            "Africa": "#FF6347",
+            "North America": "#9932CC",
+            "Oceania": "#20B2AA",
+            "South America": "#FF8C00"
+        };
+
+        // Set up dimensions
+        const margin = {top: 60, right: 150, bottom: 40, left: 200};
+        const width = 1000 - margin.left - margin.right;
+        const height = 900 - margin.bottom - margin.top;
+
+        // Create SVG
+        const svg = d3.select("#bump-chart")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Scales
+        const xScale = d3.scalePoint()
+            .domain(years)
+            .range([0, width]);
+
+        const yScale = d3.scaleLinear()
+            .domain([1, 20])
+            .range([0, height]);
+
+        // Add year labels
+        g.selectAll(".time-label")
+            .data(years)
+            .enter().append("text")
+            .attr("class", "time-label")
+            .attr("x", d => xScale(d))
+            .attr("y", -20)
+            .text(d => d);
+
+        // Tooltip
+        const tooltip = d3.select(".tooltip");
+
+        // Create line generator
+        const line = d3.line()
+            .x((d, i) => xScale(years[i]))
+            .y(d => yScale(d))
+            .curve(d3.curveMonotoneX);
+
+        // Add grid lines
+        g.selectAll(".grid-line")
+            .data(years)
+            .enter().append("line")
+            .attr("class", "grid-line")
+            .attr("x1", d => xScale(d))
+            .attr("x2", d => xScale(d))
+            .attr("y1", 0)
+            .attr("y2", height)
+            .style("stroke", "#e0e0e0")
+            .style("stroke-width", 1);
+
+        // Add lines and dots for each country
+        data.forEach(countryData => {
+            const countryGroup = g.append("g").attr("class", "country");
+            
+            // Add line
+            countryGroup.append("path")
+                .attr("class", "line")
+                .attr("d", line(countryData.values))
+                .style("stroke", continentColors[countryData.continent])
+                .style("opacity", 0.7)
+                .on("mouseover", function(event) {
+                    d3.select(this).style("opacity", 1);
+                    g.selectAll(".line").style("opacity", 0.2);
+                    d3.select(this).style("opacity", 1);
+                    
+                    const lastRank = countryData.values[countryData.values.length - 1];
+                    tooltip.style("opacity", 1)
+                        .html("<strong>" + countryData.country + "</strong><br/>" +
+                              "Continent: " + countryData.continent + "<br/>" +
+                              "2017: Rank " + countryData.values[0] + "<br/>" +
+                              "2020: Rank " + lastRank)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    g.selectAll(".line").style("opacity", 0.7);
+                    tooltip.style("opacity", 0);
+                });
+
+            // Add dots
+            countryData.values.forEach((value, i) => {
+                const isLastPoint = i === countryData.values.length - 1;
+                const currentYear = years[i];
+                
+                if (isLastPoint) {
+                    // Add square for final points
+                    countryGroup.append("rect")
+                        .attr("class", "dot")
+                        .attr("x", xScale(currentYear) - 4)
+                        .attr("y", yScale(value) - 4)
+                        .attr("width", 8)
+                        .attr("height", 8)
+                        .style("stroke", continentColors[countryData.continent])
+                        .style("fill", continentColors[countryData.continent]);
+                } else {
+                    // Add circle for regular points
+                    countryGroup.append("circle")
+                        .attr("class", "dot")
+                        .attr("cx", xScale(currentYear))
+                        .attr("cy", yScale(value))
+                        .style("stroke", continentColors[countryData.continent])
+                        .style("fill", "white")
+                        .attr("r", 4);
+                }
+            });
+
+            // Add country label
+            countryGroup.append("text")
+                .attr("class", "country-label")
+                .attr("x", -40)
+                .attr("y", yScale(countryData.values[0]))
+                .text(countryData.country)
+                .style("fill", continentColors[countryData.continent])
+                .style("font-size", "11px")
+                .style("text-anchor", "end");
+        });
+    </script>
+</body>
+</html>

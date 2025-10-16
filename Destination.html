@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Destination Countries Chart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .line {
+            fill: none;
+            stroke-width: 3;
+            transition: all 0.3s ease;
+        }
+        .line:hover {
+            stroke-width: 5;
+            opacity: 1 !important;
+        }
+        .dot {
+            fill: white;
+            stroke-width: 2;
+            r: 4;
+            transition: all 0.3s ease;
+        }
+        .dot:hover {
+            r: 6;
+        }
+        .country-label {
+            font-size: 12px;
+            font-weight: bold;
+            fill: #333;
+            alignment-baseline: middle;
+        }
+        .time-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: #666;
+            text-anchor: middle;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .legend {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chart-container">
+            <svg id="bump-chart"></svg>
+            <div class="tooltip"></div>
+        </div>
+        <div class="legend">
+            <p><strong>Note:</strong> Hover over lines to see country details. Lower rank numbers indicate higher positions.</p>
+            <p><strong>Color coding by continent:</strong> 
+               <span style="color: #2E8B57; font-weight: bold;">■ Asia</span> | 
+               <span style="color: #4169E1; font-weight: bold;">■ Europe</span> | 
+               <span style="color: #FF6347; font-weight: bold;">■ Africa</span> | 
+               <span style="color: #9932CC; font-weight: bold;">■ North America</span> | 
+               <span style="color: #20B2AA; font-weight: bold;">■ Oceania</span> | 
+               <span style="color: #FF8C00; font-weight: bold;">■ South America</span>
+            </p>
+            <p><strong>Markers:</strong> <strong>Colored squares</strong> for series ending in 2019*. <em>*2019 is the latest available data (no 2020 data)</em></p>
+        </div>
+    </div>
+
+    <script>
+        // Final Destination Countries data with continent grouping
+        const data = [
+            {country: "United States of America", values: [1, 1, 1, 1, 1, 1, 1], continent: "North America"},
+            {country: "Russian Federation", values: [2, 2, 2, 2, 2, 2, 4], continent: "Europe"},
+            {country: "India", values: [3, 4, 4, 8, 12, 12, 13], continent: "Asia"},
+            {country: "Ukraine", values: [4, 5, 6, 9, 13, 13, 14], continent: "Europe"},
+            {country: "Pakistan", values: [5, 11, 11, 14, 14, 17, 20], continent: "Asia"},
+            {country: "Germany", values: [6, 3, 3, 3, 3, 4, 2], continent: "Europe"},
+            {country: "France", values: [7, 6, 5, 4, 6, 7, 7], continent: "Europe"},
+            {country: "Saudi Arabia", values: [8, 7, 8, 5, 4, 3, 3], continent: "Asia"},
+            {country: "Canada", values: [9, 8, 7, 6, 8, 8, 8], continent: "North America"},
+            {country: "Australia", values: [10, 10, 10, 10, 10, 9, 9], continent: "Oceania"},
+            {country: "United Kingdom", values: [11, 9, 9, 7, 7, 5, 5], continent: "Europe"},
+            {country: "Kazakhstan", values: [12, 12, 12, 15, 15, 16, 16], continent: "Asia"},
+            {country: "Italy", values: [13, 14, 14, 12, 11, 11, 10], continent: "Europe"},
+            {country: "United Arab Emirates", values: [14, 13, 13, 13, 5, 6, 6], continent: "Asia"},
+            {country: "South Africa", values: [15, 18, 20, 19, 19, 15, 15], continent: "Africa"},
+            {country: "Turkey", values: [16, 16, 18, 20, 20, 14, 12], continent: "Europe"},
+            {country: "Spain", values: [17, 17, 16, 11, 9, 10, 11], continent: "Europe"},
+            {country: "Jordan", values: [18, 15, 15, 16, 17, 20, 19], continent: "Asia"},
+            {country: "Malaysia", values: [19, 19, 17, 18, 18, 19, 18], continent: "Asia"},
+            {country: "Thailand", values: [20, 20, 19, 17, 16, 18, 17], continent: "Asia"}
+        ];
+
+        const years = [1990, 1995, 2000, 2005, 2010, 2015, 2019];
+        
+        // Continent color mapping
+        const continentColors = {
+            "Asia": "#2E8B57",
+            "Europe": "#4169E1",
+            "Africa": "#FF6347",
+            "North America": "#9932CC",
+            "Oceania": "#20B2AA",
+            "South America": "#FF8C00"
+        };
+
+        // Set up dimensions
+        const margin = {top: 60, right: 150, bottom: 40, left: 200};
+        const width = 1000 - margin.left - margin.right;
+        const height = 900 - margin.bottom - margin.top;
+
+        // Create SVG
+        const svg = d3.select("#bump-chart")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Scales
+        const xScale = d3.scalePoint()
+            .domain(years)
+            .range([0, width]);
+
+        const yScale = d3.scaleLinear()
+            .domain([1, 20])
+            .range([0, height]);
+
+        // Add year labels with asterisk for 2019
+        g.selectAll(".time-label")
+            .data(years)
+            .enter().append("text")
+            .attr("class", "time-label")
+            .attr("x", d => xScale(d))
+            .attr("y", -20)
+            .text(d => d === 2019 ? "2019*" : d);
+
+        // Tooltip
+        const tooltip = d3.select(".tooltip");
+
+        // Create line generator
+        const line = d3.line()
+            .x((d, i) => xScale(years[i]))
+            .y(d => yScale(d))
+            .curve(d3.curveMonotoneX);
+
+        // Add grid lines
+        g.selectAll(".grid-line")
+            .data(years)
+            .enter().append("line")
+            .attr("class", "grid-line")
+            .attr("x1", d => xScale(d))
+            .attr("x2", d => xScale(d))
+            .attr("y1", 0)
+            .attr("y2", height)
+            .style("stroke", "#e0e0e0")
+            .style("stroke-width", 1);
+
+        // Add lines and dots for each country
+        data.forEach(countryData => {
+            const countryGroup = g.append("g").attr("class", "country");
+            
+            // Add line
+            countryGroup.append("path")
+                .attr("class", "line")
+                .attr("d", line(countryData.values))
+                .style("stroke", continentColors[countryData.continent])
+                .style("opacity", 0.7)
+                .on("mouseover", function(event) {
+                    d3.select(this).style("opacity", 1);
+                    g.selectAll(".line").style("opacity", 0.2);
+                    d3.select(this).style("opacity", 1);
+                    
+                    const lastRank = countryData.values[countryData.values.length - 1];
+                    tooltip.style("opacity", 1)
+                        .html("<strong>" + countryData.country + "</strong><br/>" +
+                              "Continent: " + countryData.continent + "<br/>" +
+                              "1990: Rank " + countryData.values[0] + "<br/>" +
+                              "2019: Rank " + lastRank)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    g.selectAll(".line").style("opacity", 0.7);
+                    tooltip.style("opacity", 0);
+                });
+
+            // Add dots
+            countryData.values.forEach((value, i) => {
+                const isLastPoint = i === countryData.values.length - 1;
+                const currentYear = years[i];
+                
+                if (isLastPoint) {
+                    // Add square for final points
+                    countryGroup.append("rect")
+                        .attr("class", "dot")
+                        .attr("x", xScale(currentYear) - 4)
+                        .attr("y", yScale(value) - 4)
+                        .attr("width", 8)
+                        .attr("height", 8)
+                        .style("stroke", continentColors[countryData.continent])
+                        .style("fill", continentColors[countryData.continent]);
+                } else {
+                    // Add circle for regular points
+                    countryGroup.append("circle")
+                        .attr("class", "dot")
+                        .attr("cx", xScale(currentYear))
+                        .attr("cy", yScale(value))
+                        .style("stroke", continentColors[countryData.continent])
+                        .style("fill", "white")
+                        .attr("r", 4);
+                }
+            });
+
+            // Add country label
+            countryGroup.append("text")
+                .attr("class", "country-label")
+                .attr("x", -40)
+                .attr("y", yScale(countryData.values[0]))
+                .text(countryData.country)
+                .style("fill", continentColors[countryData.continent])
+                .style("font-size", "11px")
+                .style("text-anchor", "end");
+        });
+    </script>
+</body>
+</html>

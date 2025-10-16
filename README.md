@@ -1,2 +1,2 @@
 # Tracking_migration
-Examine correlations between migration-related discussions on Twitter and official United Nations (UN) data, identifying significant alignments that validate the platform's utility in tracking migration dynamics. 
+The provided codes were used to generate all figures presented in the Migration paper. You can reproduce these figures using the scripts below and the dataset available in my Zenodo repository.
